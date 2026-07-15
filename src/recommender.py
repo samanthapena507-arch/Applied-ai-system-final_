@@ -1,3 +1,4 @@
+import csv
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 
@@ -35,39 +36,120 @@ class Recommender:
     Required by tests/test_recommender.py
     """
     def __init__(self, songs: List[Song]):
+        """Initialize the recommender with the available songs."""
         self.songs = songs
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
+        """Return up to k recommended songs for the given user profile."""
         # TODO: Implement recommendation logic
         return self.songs[:k]
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
+        """Explain why a given song was recommended for the user."""
         # TODO: Implement explanation logic
         return "Explanation placeholder"
 
 def load_songs(csv_path: str) -> List[Dict]:
-    """
-    Loads songs from a CSV file.
-    Required by src/main.py
-    """
-    # TODO: Implement CSV loading logic
-    print(f"Loading songs from {csv_path}...")
-    return []
+    """Load songs from a CSV file into typed dictionaries."""
+    songs: List[Dict] = []
+    numeric_fields = {"energy", "tempo_bpm", "valence", "danceability", "acousticness"}
+
+    with open(csv_path, newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            song: Dict = {}
+            for key, value in row.items():
+                if key == "id":
+                    song[key] = int(value)
+                elif key in numeric_fields:
+                    song[key] = float(value)
+                else:
+                    song[key] = value
+            songs.append(song)
+
+    return songs
 
 def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
-    """
-    Scores a single song against user preferences.
-    Required by recommend_songs() and src/main.py
-    """
-    # TODO: Implement scoring logic using your Algorithm Recipe from Phase 2.
-    # Expected return format: (score, reasons)
-    return []
+    """Compute a preference score and explanation reasons for one song."""
+    score = 0.0
+    reasons: List[str] = []
+
+    def _norm_text(value: Optional[str]) -> str:
+        """Normalize text values for case-insensitive preference matching."""
+        if value is None:
+            return ""
+        return str(value).strip().lower()
+
+    # Categorical bonuses
+    user_genre = _norm_text(user_prefs.get("genre"))
+    song_genre = _norm_text(song.get("genre"))
+    if user_genre and song_genre and user_genre == song_genre:
+        score += 1.0
+        reasons.append("genre match (+1.00)")
+
+    user_mood = _norm_text(user_prefs.get("mood"))
+    song_mood = _norm_text(song.get("mood"))
+    if user_mood and song_mood and user_mood == song_mood:
+        score += 2.0
+        reasons.append("mood match (+2.00)")
+
+    # Numerical preference weights (defaults from README algorithm recipe).
+    default_weights: Dict[str, float] = {
+        "energy": 0.30,
+        "tempo_bpm": 0.25,
+        "valence": 0.20,
+        "danceability": 0.15,
+        "acousticness": 0.10,
+    }
+
+    user_weight_overrides = user_prefs.get("weights", {})
+    weights = dict(default_weights)
+    if isinstance(user_weight_overrides, dict):
+        for key, value in user_weight_overrides.items():
+            normalized_key = "valence" if key == "valance" else key
+            if normalized_key in weights:
+                weights[normalized_key] = float(value)
+
+    # Scale used to normalize distance into a [0, 1] similarity.
+    # Most features are in [0, 1]. Tempo uses BPM, so we normalize over 120 BPM.
+    field_specs = (
+        ("energy", ("energy",), 1.0),
+        ("tempo_bpm", ("tempo_bpm", "tempo"), 120.0),
+        ("valence", ("valence", "valance"), 1.0),
+        ("danceability", ("danceability",), 1.0),
+        ("acousticness", ("acousticness", "acoustic"), 1.0),
+    )
+
+    for song_field, pref_aliases, scale in field_specs:
+        target_value = None
+        for pref_key in pref_aliases:
+            if pref_key in user_prefs:
+                target_value = user_prefs[pref_key]
+                break
+
+        if target_value is None or song_field not in song:
+            continue
+
+        target = float(target_value)
+        song_value = float(song[song_field])
+        distance = abs(song_value - target)
+        similarity = max(0.0, 1.0 - (distance / scale))
+        weighted_points = similarity * weights[song_field]
+        score += weighted_points
+        reasons.append(f"{song_field} similarity {similarity:.2f} (+{weighted_points:.2f})")
+
+    return score, reasons
 
 def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5) -> List[Tuple[Dict, float, str]]:
-    """
-    Functional implementation of the recommendation logic.
-    Required by src/main.py
-    """
+    """Rank songs by score and return the top k with explanations."""
     # TODO: Implement scoring and ranking logic
     # Expected return format: (song_dict, score, explanation)
-    return []
+    scored = []
+    for song in songs:
+        score, reasons = score_song(user_prefs, song)
+        explanation = "\n".join(f"- {reason}" for reason in reasons)
+        if not explanation:
+            explanation = "- No specific preference matches found."
+        scored.append((song, score, explanation))
+
+    return sorted(scored, key=lambda item: item[1], reverse=True)[:k]
