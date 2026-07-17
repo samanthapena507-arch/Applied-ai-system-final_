@@ -22,8 +22,13 @@ def main() -> None:
 
     # test made to match perfectly to the song Rooftop Lights in songs.csv
     user_prefs2 = {"genre": "indie pop", "mood": "happy", "energy": 0.76, "tempo_bpm": 124, "valence": 0.81, "danceability": 0.82, "acousticness": 0.35}
+    # alternative tests
+    user_prefs3 = {"genre": "lofi", "mood": "focused", "energy": 0.5, "tempo": 80, "valence": 0.65}
+    user_prefs4 = {"genre": "metal", "mood": "chill", "energy": 0.65, "tempo_bpm": 125, "valance": 0.8, "danceability": 0.7, "acoustic": 0.4}
+    # my profile
+    my_prefs = {"genre": "indie pop", "mood": "happy", "energy": 0.75, "tempo": 130, "valence": 0.8, "danceability": 0.93, "acousticness": 0.6}
 
-    recommendations = recommend_songs(user_prefs2, songs, k=5)
+    recommendations = recommend_songs(user_prefs3, songs, k=5)
 
     print("\nTop recommendations:\n")
     for index, rec in enumerate(recommendations, start=1):
