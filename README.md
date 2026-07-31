@@ -1,52 +1,35 @@
-# 🎵 Music Recommender Simulation
+# 🎵 Music Recommender Simulation 2.0
 
-## Project Summary
+## Original Recommender Simulation Summary
+The original Music recommender model SongSavenger 1.0 was a recommender that would load the songs in the songs.csv file and based on hardcoded user prefrences and ranks them. The model was able to deal with dierect mood and genre matches as well as case sensitivity
 
-In this project you will build and explain a small music recommender system.
+## Title and Summary
 
-Your goal is to:
+**Music Recommender Simulation** 
+The new recommender uses a gemini pass key to add in a fine tune and specialized element to the recommender. The new version takes in a comma seperated list of keywords for what the kind of song the user wants to get recommendations for. The system then uses the song data in songs.csv to come up with the top five songs closest to what the user wants similar to the original model. 
 
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Three things that are used when picking songs: likes, dislikes, and subscriptions/artist follows. Also a mix of content based filtering and collaborative 
-
-Replace this paragraph with your own summary of what your version does.
+This new change matters as it can now be more flexible with the users input and adds a UI element to make the recommender cleaner. This new recommender helps with the direct mood and genre match limitations of the original model as well. 
 
 ---
 
-## How The System Works
+## Architecture Overview
 
-Real world recommenders:
-From my understanding of platforms like Spotifiy and YouTube they use a combination of content-based filtering, collaborative filtering, and other behavioral signals. These signals include things such as likes, dislikes, and subscriptions/artist follows. These signals are presented during further use of the platform. These kinds of systems are powered by machine learning and are adaptable to the users changing tastes.
+The system has two implementations of the same idea, both diagrammed of which are in the mermaid.mmd file in the diagrams folder
 
-Explain your design in plain language.
+1. **Functional scoring path** (`load_songs` → `recommend_songs` → `score_song`) — loads the songs from the soongs.csv file  into dictionaries, then for each song computes a score made of:
+   - Categorical bonuses: +1.00 for a genre match, +2.00 for a mood match.
+   - Weighted numerical similarity: for energy, tempo, valence, danceability, and acousticness, similarity is `1 - |song_value - target_value| / scale`, weighted by `energy(0.30)`, `tempo(0.25)`, `valence(0.20)`, `danceability(0.15)`, `acousticness(0.10)`.
+   
+   Songs are then sorted by total score and the top `k` number of songs are returned along with a list of reasons.
 
-Some prompts to answer:
+2. **OOP path** (`Recommender` / `Song` / `UserProfile`) — wraps songs and a user profile as dataclasses and exposes `recommend()` and `explain_recommendation()`. Explanations come from a heuristic (comparing genre/mood/energy) by default, or from the Gemini API when one is configured, with the heuristic as a fallback if the Gemini API call fails or returns nothing.
+`main.py` puts these two implementations together as the CLI entry point and the `gui.py` provides a Tkinter desktop UI over the same recommender logic. Both are then launched automatically at the end of `main()`.
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-Each song in the system will have numeric attributes for the energy, tempo, dancability, acousticness, and valance. Then string attributes for the genre and mood. It will also have a final score that will be used to determine its rank later
-- What information does your `UserProfile` store
-The user will mirror what the song has in a sense as it will have a prefered energy, tempo, danceability, acousticness, and valance score from 1-10 and then a prefered range of genres and moods.
-- How does your `Recommender` compute a score for each song
-The recommender computes a score for each song based on the songs distance from the users prefrences for each of the songs attributes. It will also create a list of the songs in order from most similar to least similar to the users prefrences.
-- How do you choose which songs to recommend
-after calculating the songs score from the numeric values it will then get a bonus if it is a genre and or mood match. the songs with the highest scores will then be first in the ranking.
+Design notes and the reasoning behind the scoring recipe (including known biases toward mood over genre and higher weighted features) are in the model_card.md file.
 
-You can include a simple diagram or bullet list if helpful.
-
-- Algorithm Recipe:
-Points for songs are rewarded for their similarity to the users prefrences. For prefrences like genre and mood points are given as bonous points where a matching mood gets 2 points and a matching genre gets 1. For the number based prefrences points are rewarded based on distance from the target number (e.g. the user prefrence). The weights for the numerical prefrences will be as follows: energy(0.3), tempo(0.25), valance(0.20), danceability(0.15), acoustic(0.1). 
-- potential biases:
-The probable biases that will come up in the system will be a slight bias towards mood over genre and the user prefrences that have a higher weight rather than the ones on the lower end.
 ---
 
-## Getting Started
-
-### Setup
+## Setup Instructions
 
 1. Create a virtual environment (optional but recommended):
 
@@ -54,35 +37,34 @@ The probable biases that will come up in the system will be a slight bias toward
    python -m venv .venv
    source .venv/bin/activate      # Mac or Linux
    .venv\Scripts\activate         # Windows
+   ```
 
-2. Install dependencies
+2. Install dependencies:
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3. Run the app:
+3. (Optional) Enable LLM-generated explanations by creating a `.env` file with:
 
-```bash
-python -m src.main
-```
+   ```
+   GEMINI_API_KEY=your-key-here
+   ```
 
-### Running Tests
+   Without a key, the recommender falls back to heuristic explanations automatically.
 
-Run the starter tests with:
+4. Run the CLI (this also launches the Tkinter GUI window at the end):
 
-```bash
-pytest
-```
-
-You can add more tests in `tests/test_recommender.py`.
+   ```bash
+   python main.py
+   ```
 
 ---
 
 ## Sample Recommendation Output
 
-Paste a sample of your recommender's output here as a text block so a reader can see what it produces:
-
+```
+OG design
 =================================================================
 Top recommendations:
 
@@ -118,217 +100,223 @@ Reasons:
 --------------------------------------------------
 =================================================================
 
-```
-# e.g.:
-# User profile: genre=indie, mood=chill, energy=low
-# Recommendations:
-#   1. ...
-#   2. ...
-#   3. ...
-```
-The Extra user profiles and their outputs:
-- 1. user_prefs2 = {"genre": "indie pop", "mood": "happy", "energy": 0.76, "tempo_bpm": 124, "valence": 0.81, "danceability": 0.82, "acousticness": 0.35}
-=========================================================
-Top recommendations:
+New design with Gemini
 
-#1 Rooftop Lights
-Final Score: 4.00
+Example 1:
+=================================================================
+Keywords detected: upbeat, happy, pop, dance energy
+Best representing genre: pop
+The keywords 'upbeat', 'happy', and 'pop' directly led to the selection of pop as the best genre.
+
+======================================================================
+
+#1 Sunrise City
+Final Score: 3.95
 Reasons:
   - genre match (+1.00)
   - mood match (+2.00)
-  - energy similarity 1.00 (+0.30)
-  - tempo_bpm similarity 1.00 (+0.25)
-  - valence similarity 1.00 (+0.20)
-  - danceability similarity 1.00 (+0.15)
-  - acousticness similarity 1.00 (+0.10)
+  - energy similarity 0.97 (+0.29)
+  - tempo_bpm similarity 0.95 (+0.10)
+  - valence similarity 0.94 (+0.28)
+  - danceability similarity 0.94 (+0.28)
+  - acousticness similarity 0.92 (+0.00)
+AI Explanation: You'll love "Sunrise City" by Neon Echo because its joyful pop sound and high-energy vibe (0.82) are practically made to match your upbeat taste!
 --------------------------------------------------
-#2 Golden Hour Drift
-Final Score: 3.96
-Reasons:
-  - genre match (+1.00)
-  - mood match (+2.00)
-  - energy similarity 0.95 (+0.28)
-  - tempo_bpm similarity 0.98 (+0.25)
-  - valence similarity 0.98 (+0.20)
-  - danceability similarity 0.98 (+0.15)
-  - acousticness similarity 0.89 (+0.09)
---------------------------------------------------
-#3 Sunrise City
+#2 Rooftop Lights
 Final Score: 2.94
 Reasons:
   - mood match (+2.00)
-  - energy similarity 0.94 (+0.28)
-  - tempo_bpm similarity 0.95 (+0.24)
-  - valence similarity 0.97 (+0.19)
-  - danceability similarity 0.97 (+0.15)
-  - acousticness similarity 0.83 (+0.08)
+  - energy similarity 0.91 (+0.27)
+  - tempo_bpm similarity 1.00 (+0.10)
+  - valence similarity 0.91 (+0.27)
+  - danceability similarity 0.97 (+0.29)
+  - acousticness similarity 0.75 (+0.00)
+AI Explanation: You're going to love "Rooftop Lights" by Indigo Parade because its joyful indie pop vibe and high-energy beat (0.76) hit that happy, upbeat sweet spot you're looking for!
+--------------------------------------------------
+#3 Golden Hour Drift
+Final Score: 2.92
+Reasons:
+  - mood match (+2.00)
+  - energy similarity 0.86 (+0.26)
+  - tempo_bpm similarity 0.98 (+0.10)
+  - valence similarity 0.93 (+0.28)
+  - danceability similarity 0.95 (+0.29)
+  - acousticness similarity 0.86 (+0.00)
+AI Explanation: You'll love "Golden Hour Drift" by Marble Sky because its bright indie pop sound delivers plenty of happy, sun-soaked vibes! While its energy is a tiny bit below your usual target, it still brings a wonderfully uplifting and vibrant beat that will keep you smiling.
 --------------------------------------------------
 #4 Gym Hero
-Final Score: 0.89
-Reasons:
-  - energy similarity 0.83 (+0.25)
-  - tempo_bpm similarity 0.93 (+0.23)
-  - valence similarity 0.96 (+0.19)
-  - danceability similarity 0.94 (+0.14)
-  - acousticness similarity 0.70 (+0.07)
---------------------------------------------------
-#5 Afterglow Avenue
-Final Score: 0.89
-Reasons:
-  - energy similarity 0.97 (+0.29)
-  - tempo_bpm similarity 0.92 (+0.23)
-  - valence similarity 0.70 (+0.14)
-  - danceability similarity 0.94 (+0.14)
-  - acousticness similarity 0.84 (+0.08)
---------------------------------------------------
-=========================================================
-=========================================================
-- 2. user_prefs3 = {"genre": "lofi", "mood": "focused", "energy": 0.5, "tempo": 80, "valence": 0.65}
-=========================================================
-Top recommendations:
-
-#1 Focus Flow
-Final Score: 3.71
-Reasons:
-  - genre match (+1.00)
-  - mood match (+2.00)
-  - energy similarity 0.90 (+0.27)
-  - tempo_bpm similarity 1.00 (+0.25)
-  - valence similarity 0.94 (+0.19)
---------------------------------------------------
-#2 Glass Horizon
-Final Score: 2.62
-Reasons:
-  - mood match (+2.00)
-  - energy similarity 0.75 (+0.22)
-  - tempo_bpm similarity 0.85 (+0.21)
-  - valence similarity 0.93 (+0.19)
---------------------------------------------------
-#3 Midnight Coding
-Final Score: 1.70
+Final Score: 1.92
 Reasons:
   - genre match (+1.00)
   - energy similarity 0.92 (+0.28)
-  - tempo_bpm similarity 0.98 (+0.25)
-  - valence similarity 0.91 (+0.18)
+  - tempo_bpm similarity 0.93 (+0.09)
+  - valence similarity 0.87 (+0.26)
+  - danceability similarity 0.97 (+0.29)
+  - acousticness similarity 0.95 (+0.00)
+AI Explanation: You're going to love "Gym Hero" by Max Pulse because its super high energy (0.93) hits right near your 0.85 target! Plus, its intense pop vibes will totally give you that fun, upbeat mood you're looking for.
+--------------------------------------------------
+#5 Neon Alley
+Final Score: 0.89
+Reasons:
+  - energy similarity 0.99 (+0.30)
+  - tempo_bpm similarity 0.77 (+0.08)
+  - valence similarity 0.72 (+0.22)
+  - danceability similarity 0.99 (+0.30)
+  - acousticness similarity 0.98 (+0.00)
+AI Explanation: If you love upbeat pop, you'll adore "Neon Alley" by Chrome River because its high energy level of 0.84 matches your vibe, while its confident hip-hop rhythm brings a fun, feel-good bounce to your day!
+--------------------------------------------------
+=================================================================
+
+Example 2:
+=================================================================
+Keywords detected: emo, sad, high energy, danceable
+Best representing genre: Dance-Punk
+The combination of high energy and danceability paired with emo and sad led to the selection of Dance-Punk.
+
+======================================================================
+
+#1 Afterglow Avenue
+Final Score: 0.91
+Reasons:
+  - energy similarity 0.94 (+0.33)
+  - tempo_bpm similarity 0.82 (+0.12)
+  - valence similarity 0.79 (+0.08)
+  - danceability similarity 0.96 (+0.29)
+  - acousticness similarity 0.91 (+0.09)
+AI Explanation: You’re going to love "Afterglow Avenue" by Static Bloom because its high-energy synthwave sound hits that exact 0.79 sweet spot you're looking for. It delivers that driving, dance-ready tempo you want, paired with a moody, melancholic vibe that feels just like a late-night dance-punk anthem!
+--------------------------------------------------
+#2 Sunrise City
+Final Score: 0.90
+Reasons:
+  - energy similarity 0.97 (+0.34)
+  - tempo_bpm similarity 0.86 (+0.13)
+  - valence similarity 0.46 (+0.05)
+  - danceability similarity 0.99 (+0.30)
+  - acousticness similarity 0.92 (+0.09)
+AI Explanation: Even though "Sunrise City" leans a bit happier than your usual melancholy tastes, its high-energy vibe (0.82) is a great match for the driving pulse you love in Dance-Punk! Plus, its vibrant pop sound is sure to give you that upbeat, late-night rush you're looking for.
+--------------------------------------------------
+#3 Late Night Signals
+Final Score: 0.90
+Reasons:
+  - energy similarity 0.89 (+0.31)
+  - tempo_bpm similarity 0.94 (+0.14)
+  - valence similarity 0.86 (+0.09)
+  - danceability similarity 0.89 (+0.27)
+  - acousticness similarity 0.97 (+0.10)
+AI Explanation: You'll love "Late Night Signals" by Pulse Theory because its intense, high-energy EDM sound hits that exact 0.96 pulse you're looking for, delivering the perfect driving beat for your dance-punk cravings!
+--------------------------------------------------
+#4 Storm Runner
+Final Score: 0.90
+Reasons:
+  - energy similarity 0.94 (+0.33)
+  - tempo_bpm similarity 0.86 (+0.13)
+  - valence similarity 0.82 (+0.08)
+  - danceability similarity 0.86 (+0.26)
+  - acousticness similarity 1.00 (+0.10)
+AI Explanation: You're going to love "Storm Runner" by Voltline because its intense, high-energy rock vibe (sitting right at that 0.91 mark!) hits that exact sweet spot of being both melancholic and fiercely energetic. It's the ultimate adrenaline rush for any dance-punk fan looking to move fast while still soaking in those moody undertones!
+--------------------------------------------------
+#5 Neon Alley
+Final Score: 0.90
+Reasons:
+  - energy similarity 0.99 (+0.35)
+  - tempo_bpm similarity 0.68 (+0.10)
+  - valence similarity 0.68 (+0.07)
+  - danceability similarity 0.94 (+0.28)
+  - acousticness similarity 0.98 (+0.10)
+AI Explanation: "Neon Alley" was recommended because its high energy (0.84) hits that exact 0.85 target you're looking for, while bringing a confident, genre-bending vibe that pairs surprisingly well with melancholic dance-punk.
+--------------------------------------------------
+=================================================================
+
+Eaxmple 3:
+=================================================================
+Keywords detected: sad, low energy, danceable, pop, acoustic
+Best representing genre: pop
+The explicit mention of 'pop' combined with 'acoustic' and 'danceable' directly points to acoustic-driven sad pop music.
+
+======================================================================
+
+#1 Sunrise City
+Final Score: 1.55
+Reasons:
+  - genre match (+1.00)
+  - energy similarity 0.38 (+0.10)
+  - tempo_bpm similarity 0.81 (+0.08)
+  - valence similarity 0.36 (+0.07)
+  - danceability similarity 0.91 (+0.23)
+  - acousticness similarity 0.38 (+0.08)
+AI Explanation: Oops, it looks like our playlist generator had a bit of a mix-up and suggested the upbeat, happy tracks when you were actually in the mood for some chill, melancholy pop! We'll make sure to dial down the energy next time so you get those cozy, sad-pop vibes you're looking for.
+--------------------------------------------------
+#2 Gym Hero
+Final Score: 1.48
+Reasons:
+  - genre match (+1.00)
+  - energy similarity 0.27 (+0.07)
+  - tempo_bpm similarity 0.69 (+0.07)
+  - valence similarity 0.43 (+0.09)
+  - danceability similarity 0.82 (+0.20)
+  - acousticness similarity 0.25 (+0.05)
+AI Explanation: Even though you usually prefer a lower-energy, mellow vibe, "Gym Hero" is a fun pop curveball that brings an intense and powerful punch to your playlist!
+--------------------------------------------------
+#3 Focus Flow
+Final Score: 0.83
+Reasons:
+  - energy similarity 0.80 (+0.20)
+  - tempo_bpm similarity 0.88 (+0.09)
+  - valence similarity 0.61 (+0.12)
+  - danceability similarity 0.90 (+0.23)
+  - acousticness similarity 0.98 (+0.20)
+AI Explanation: If you're in the mood for some reflective pop, you'll love how "Focus Flow" by LoRoom blends gentle lofi beats with a dedicated, focused vibe. Even though its energy is slightly higher at 0.4, its mellow atmosphere hits that sweet spot for a calm, introspective listening session!
 --------------------------------------------------
 #4 Library Rain
-Final Score: 1.68
+Final Score: 0.82
 Reasons:
-  - genre match (+1.00)
-  - energy similarity 0.85 (+0.26)
-  - tempo_bpm similarity 0.93 (+0.23)
-  - valence similarity 0.95 (+0.19)
+  - energy similarity 0.85 (+0.21)
+  - tempo_bpm similarity 0.81 (+0.08)
+  - valence similarity 0.60 (+0.12)
+  - danceability similarity 0.88 (+0.22)
+  - acousticness similarity 0.94 (+0.19)
+AI Explanation: If you're in the mood for some down-tempo pop, you'll love "Library Rain" by Paper Lanterns! Its gentle, chill lofi vibes and soothingly low energy hit that sweet spot for a cozy, melancholic rainy day.
 --------------------------------------------------
-#5 Quiet Hands
-Final Score: 0.68
+#5 Midnight Coding
+Final Score: 0.82
 Reasons:
-  - energy similarity 0.83 (+0.25)
-  - tempo_bpm similarity 0.93 (+0.23)
-  - valence similarity 0.98 (+0.20)
+  - energy similarity 0.78 (+0.20)
+  - tempo_bpm similarity 0.86 (+0.09)
+  - valence similarity 0.64 (+0.13)
+  - danceability similarity 0.92 (+0.23)
+  - acousticness similarity 0.91 (+0.18)
+AI Explanation: If you love sad pop, you'll probably enjoy the mellow, late-night vibes of "Midnight Coding" by LoRoom. Even though its energy is a tiny bit higher than your usual target, its chill lofi sound makes it the perfect comforting background track for a quiet, melancholic evening.
 --------------------------------------------------
-=========================================================
-=========================================================
-- 3. user_prefs4 = {"genre": "metal", "mood": "chill", "energy": 0.65, "tempo_bpm": 125, "valance": 0.8, "danceability": 0.7, "acoustic": 0.4}
-=========================================================
-Top recommendations:
-
-#1 Midnight Coding
-Final Score: 2.74
-Reasons:
-  - mood match (+2.00)
-  - energy similarity 0.77 (+0.23)
-  - tempo_bpm similarity 0.61 (+0.15)
-  - valence similarity 0.76 (+0.15)
-  - danceability similarity 0.92 (+0.14)
-  - acousticness similarity 0.69 (+0.07)
---------------------------------------------------
-#2 Library Rain
-Final Score: 2.70
-Reasons:
-  - mood match (+2.00)
-  - energy similarity 0.70 (+0.21)
-  - tempo_bpm similarity 0.56 (+0.14)
-  - valence similarity 0.80 (+0.16)
-  - danceability similarity 0.88 (+0.13)
-  - acousticness similarity 0.54 (+0.05)
---------------------------------------------------
-#3 Window Seat Weather
-Final Score: 2.69
-Reasons:
-  - mood match (+2.00)
-  - energy similarity 0.64 (+0.19)
-  - tempo_bpm similarity 0.59 (+0.15)
-  - valence similarity 0.93 (+0.19)
-  - danceability similarity 0.79 (+0.12)
-  - acousticness similarity 0.47 (+0.05)
---------------------------------------------------
-#4 Spacewalk Thoughts
-Final Score: 2.63
-Reasons:
-  - mood match (+2.00)
-  - energy similarity 0.63 (+0.19)
-  - tempo_bpm similarity 0.46 (+0.11)
-  - valence similarity 0.85 (+0.17)
-  - danceability similarity 0.71 (+0.11)
-  - acousticness similarity 0.48 (+0.05)
---------------------------------------------------
-#5 Thunder Bloom
-Final Score: 1.70
-Reasons:
-  - genre match (+1.00)
-  - energy similarity 0.67 (+0.20)
-  - tempo_bpm similarity 0.68 (+0.17)
-  - valence similarity 0.59 (+0.12)
-  - danceability similarity 0.98 (+0.15)
-  - acousticness similarity 0.64 (+0.06)
---------------------------------------------------
-=========================================================
-
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->
-
+=================================================================
 ---
+```
+## Design Decisions
 
-## Experiments You Tried
+When it came to the design of the projects improvements I wanted to find a way to make the recommender more useable and flexible. The area I wanted to target was where the previous model failed in genre and mood. Though still limited to whats in the songs.csv file I wanted the system to be able to identify a sort of hierarchy when it came to genre and mood. This later eveolved into the use of simple key words entered into the gemini helper that was intergated into the program. Through these key words and the new system logic the system no longer has to rely on hard coded values for a users prefrences. 
+The tradeoffs I made were the catalogue limitations and easier real time testing as I could no longer enter the data of a song in directly for the users tastes to see if the system would recognize it like I did in the original. 
 
-Use this section to document the experiments you ran. For example:
+## Testing summary
 
-- What happened when you changed the weight on genre from 2.0 to 0.5
-When I changed the weight for the genre and energy in my program the results were surprisingly similar but there were still a few differences in the recommended songs but I wouldn't say that the change made the recommendations all that more accurate.
-- What happened when you added tempo or valence to the score
-I think when the system has more guides to follow it helps to make the recommendatons more accurate as it has a clearer picture of what the user wants.
-- How did your system behave for different types of users
-Due to the lack of a heirarchy the program behaved more consistantly with profiles that better matched the majority of the songs in the data set and had a harder time with profiles that might have been similar but didn't directly match the mood or genre of a song.
+Most of the testing I did was runtime testing to see how the system would react to different inputs from the user. 
+One of the tests I did was similar to the one I did in the original program where I input keywords to try and get a specific genre from the recommender which ended in the system giving me the results I was going for. I also did a test where no keywords or a single letter was entered to see what they system would do. For this test they system was able to handle this gracefully and even gave a default list of default songs were displayed with an explanation of why the deafault was presented. This made me realize just how well the AI assisted program was able to handle unfit data as well as how it can be intuitive. It was able to easily recognize the genre I was going for without having to input the genre as a keyword. This also showed me just how much the us of AI in projects can improve the flexiblity of a program making it ore user friendly. 
+
+|Input |Evaluation |Result |
+|------|-----------|-------|
+|h |Gave default results |Pass|
+|sad, low energy, danceable, pop, acoustic |Defaulted to mostly lofi not pop |Partial pass|
+| happy, traditional, family, danceable, acoustic |Gave intended genre of Folk |Pass|
 
 ---
 
 ## Limitations and Risks
 
-Summarize some limitations of your recommender.
-
-Examples:
-
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
-
-You will go deeper on this in your model card.
-
-I think the recommender would work better with a bigger catalog accuracy wise, however, that doesn't take into account the extra time it will take the program to execute. There is also the issue that comes with general message and content of the song as though it might match the users prefrences in respect to the songs components but the lyrics could be inappropriate or offensive to the user. When it comes to favor it seems to favor the happy mooded pop loving users as oppsed to those who favor metal.
+- Only works on a tiny catalog so far but accuracy would likely improve with more songs. However, more songs would cost the programm at runtime.
+- Doesn't understand lyrics, language, or content — a song can match numerically while still being inappropriate for the listener which is why the songs cataloge is limited to the ones in songs.csv so far.
+- Tends to favor happy/pop leaning profiles over metal leaning ones, and favors mood matches over genre matches due to the weighting scheme that I put into the logic layer.
 
 ---
 
 ## Reflection
 
-Read and complete `model_card.md`:
-
-[**Model Card**](model_card.md)
-
-Write 1 to 2 paragraphs here about what you learned:
-
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
-
-What I learned about how recommenders turn data into predictions starts with the number of things the program has to consider since the ones covered in this project are not the end all be all. It also makes me think more about how we gave the program the data it needed directly where the recommender systems in apps like spotify have to gather most of that information indirectly. Those systems get the information from the songs and artists we interact with and then process and find the most common aspects of songs that the user likes. There is also prefrences like the level of lyricism a song has as well as the laguges the user likes as a user can like songs in many different languages. I think the biases that can come up can be in language for one but also the message portrayed in the song, and even with the artists they feature. Though I doubt it would happen with bigger platforms data set bias when it comes to song diversity can also be a problem that comes up.
-
-Moving on to the use of my AI tools it helped me the most with getting a started on the ranking logic and how things could be organized. This was great because it was not something I had experience thinking about often in such detail. There were times when it gave me ideas that I didn't think were great namely when it talked about the distribution of points since it felt like it made the point system overly complicated. Going through and planning it helped me realize how something like a recommendation can seem simple but as you go further into the actual process you can see the underlying intricacies of the algorithm. If I were to develop the project more I think I would clean up the output a little more and either try to bring it out of the terminal or try to use real song data to make it work more for the real world.
+This project taught me a bit about time management like some of my others but also about the complexities of working with AI and implementing AI faetures into one of the programs that I create. I'd say the hardest part was getting started as it felt like a big step, but once the ideas and plans become clearer with thought, the rest of the project started to flow.
+Read the full reflection and design rationale in [model_card.md](model_card.md).
