@@ -35,9 +35,15 @@ class Recommender:
     OOP implementation of the recommendation logic.
     Required by tests/test_recommender.py
     """
-    def __init__(self, songs: List[Song]):
-        """Initialize the recommender with the available songs."""
+    def __init__(self, songs: List[Song], client=None):
+        """Initialize the recommender with the available songs.
+
+        `client` is an optional object exposing generate_explanation(prompt: str) -> str
+        (e.g. llm_client.GeminiClient). When omitted, explanations fall back to a
+        heuristic built from the user/song attributes.
+        """
         self.songs = songs
+        self.client = client
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
         """Return up to k recommended songs for the given user profile."""
@@ -46,8 +52,36 @@ class Recommender:
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
         """Explain why a given song was recommended for the user."""
-        # TODO: Implement explanation logic
-        return "Explanation placeholder"
+        heuristic = self._heuristic_explanation(user, song)
+        if self.client is None:
+            return heuristic
+
+        try:
+            explanation = self.client.generate_explanation(self._build_prompt(user, song))
+            return explanation if explanation.strip() else heuristic
+        except Exception:
+            return heuristic
+
+    def _build_prompt(self, user: UserProfile, song: Song) -> str:
+        return (
+            f'Explain in 1-2 friendly sentences why the song "{song.title}" by {song.artist} '
+            f"was recommended to a listener who likes {user.favorite_genre} music with a "
+            f"{user.favorite_mood} mood and a target energy of {user.target_energy}. "
+            f"The song's genre is {song.genre}, its mood is {song.mood}, and its energy is {song.energy}."
+        )
+
+    def _heuristic_explanation(self, user: UserProfile, song: Song) -> str:
+        reasons = []
+        if song.genre.lower() == user.favorite_genre.lower():
+            reasons.append(f"matches your favorite genre ({song.genre})")
+        if song.mood.lower() == user.favorite_mood.lower():
+            reasons.append(f"matches your favorite mood ({song.mood})")
+        if abs(song.energy - user.target_energy) < 0.15:
+            reasons.append("has a similar energy level to what you like")
+
+        if not reasons:
+            return f'"{song.title}" was included based on overall similarity to your taste profile.'
+        return f'"{song.title}" was recommended because it ' + " and ".join(reasons) + "."
 
 def load_songs(csv_path: str) -> List[Dict]:
     """Load songs from a CSV file into typed dictionaries."""
